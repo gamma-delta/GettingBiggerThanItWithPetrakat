@@ -1,11 +1,11 @@
-import { RollPlayingGame } from "./game.js";
+import { GettingBiggerThanIt } from "./game.js";
 import { InputState } from "./inputs.js";
 import { Consts } from "./consts.js";
 
 ("use strict");
 
 const elmCanvas = document.getElementById("gameCanvas") as HTMLCanvasElement;
-const globals = new RollPlayingGame(elmCanvas);
+export const the_game = new GettingBiggerThanIt(elmCanvas);
 const controls = new InputState();
 
 window.addEventListener("keydown", (ev) => controls.registerKeydown(ev.key));
@@ -18,8 +18,8 @@ function mainLoop() {
   controls.update();
   // console.log(controls);
 
-  globals.update(controls);
-  globals.draw(controls);
+  the_game.update(controls);
+  the_game.draw(controls);
 }
 
 // Main loop!

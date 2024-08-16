@@ -2,9 +2,10 @@ build : out/main.js assets
 
 assets : out/assets/.makeflag
 
-out/main.js : $(wildcard src/*) $(wildcard src/states/*)
+out/main.js : $(wildcard src/**/*)
 	tsc --project tsconfig.json
 	cp src/index.html out
+	cp -r src/include out
 
 out/assets/.makeflag : $(wildcard assets/audio/* assets/textures/*)
 	rm --recursive --force out/assets
