@@ -6,9 +6,9 @@ const KERNING_X = 0;
 const KERNING_Y = 2;
 
 export const Consts = {
-  fps: 30,
+  fps: 120,
 
-  CANVAS_SCALE: 3 / 2,
+  CANVAS_SCALE: 1920 / 1080,
 
   CHAR_WIDTH,
   CHAR_HEIGHT,
