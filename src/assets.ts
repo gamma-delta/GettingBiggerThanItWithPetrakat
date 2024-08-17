@@ -1,5 +1,12 @@
 import { Consts, GameAudio } from "./consts.js";
 
+import type _Matter from "include/matter.js";
+declare var Matter: typeof _Matter;
+
+var Engine = Matter.Engine,
+  Svg = Matter.Svg
+  ;
+
 const sfxAudios: HTMLAudioElement[] = [];
 export const Assets = {
   textures: {
@@ -23,6 +30,8 @@ export const Assets = {
       }
     },
   },
+
+  worldSvg: Document = null!,
 };
 
 function image(url: string) {
@@ -40,3 +49,12 @@ function audio(url: string, sfx: boolean = true) {
   }
   return audio;
 }
+
+fetch("assets/world.svg")
+  .then(r => r.text())
+  .then(svgSource => {
+    let doc = (new window.DOMParser()).parseFromString(svgSource, "image/svg+xml");
+
+    //@ts-ignore
+    Assets.worldSvg = doc;
+  });

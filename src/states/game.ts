@@ -4,6 +4,8 @@ import { GameState } from "../states.js";
 import { drawString } from "../utils.js";
 import { the_game } from "../main.js";
 import type _Matter from "../include/matter.js";
+import { MEMBRANE_CELL_RADIUS, Player } from "../player.js";
+import { Assets } from "../assets.js";
 
 declare var Matter: typeof _Matter;
 var Engine = Matter.Engine,
@@ -17,12 +19,17 @@ var Engine = Matter.Engine,
   Body = Matter.Body,
   Constraint = Matter.Constraint,
   Vector = Matter.Vector,
-  Common = Matter.Common;
-interface Player {
-  composite: Matter.Composite;
-  membrane: Matter.Body[];
-  crosses: Matter.Body[];
-}
+  Common = Matter.Common,
+  Bounds = Matter.Bounds,
+  Svg = Matter.Svg,
+  Vertices = Matter.Vertices
+  ;
+
+declare var decomp: any;
+// wait until it's all loaded
+window.addEventListener("load", () => {
+  Matter.Common.setDecomp(decomp);
+});
 
 export class StateGame implements GameState {
   engine: Matter.Engine;
@@ -36,181 +43,203 @@ export class StateGame implements GameState {
       canvas: the_game.canvas,
       engine: this.engine,
       options: {
-        width: 960,
-        height: 540,
+        width: 1920,
+        height: 1080,
+        wireframes: false,
+        hasBounds: true,
       },
     });
 
-    // create two boxes and a ground
-    let fricHigh = { friction: 0.9 };
-    var boxA = Bodies.rectangle(400, 200, 80, 80, fricHigh);
-    var boxB = Bodies.rectangle(450, 50, 80, 80, fricHigh);
-    var ground = Bodies.rectangle(0, 530, 3000, 20, {
-      isStatic: true,
-      ...fricHigh,
-    });
-
     // add all of the bodies to the world
-    this.player = makePlayer(90, 50);
+    this.player = new Player(this.engine.world, 20, 0, 0);
     Composite.add(this.engine.world, [
-      boxA,
-      boxB,
-      ground,
       this.player.composite,
     ]);
+    this.parseWorldSvg();
 
     // run the renderer
     Render.run(this.render);
   }
 
   update(controls: InputState): GameState | null {
-    if (controls.isPressed(" ")) {
-      for (let constr of this.player.composite.constraints) {
-        if (constr.label != "across") continue;
-
-        let pointA = Constraint.pointAWorld(constr);
-        let pointB = Constraint.pointBWorld(constr);
-        let delta = Vector.normalise(Vector.sub(pointA, pointB));
-        // The more above, the more it should be squished.
-        // Pointing from B to A.
-        // So squish A downwards
-        if (delta.y >= 0) {
-          Body.applyForce(constr.bodyA!, constr.bodyA!.position, {
-            x: 0,
-            y: delta.y * 0.02,
-          });
-          constr.bodyA!.render.strokeStyle = "#FFFF00";
-        } else {
-          constr.bodyA!.render.strokeStyle = "white";
-        }
-      }
-      // Body.applyForce(this.player.center, this.player.center.position, {
-      //   x: 0,
-      //   y: -0.1,
-      // });
-    }
-    let left = controls.isPressed("a");
-    let right = controls.isPressed("d");
-    let dTh = (left ? -1 : 0) + (right ? 1 : 0);
-    if (dTh != 0) {
-      // Body.setAngularVelocity(
-      //   this.player.center,
-      //   Body.getAngularVelocity(this.player.center) + dTh * 0.02,
-      // );
-    }
+    this.player.update(controls, this.engine.timing.lastDelta / 1000);
 
     Matter.Engine.update(this.engine, 1000 / Consts.fps);
+
+    let boundsSz =
+      Vector.sub(this.render.bounds.max, this.render.bounds.min);
+    Bounds.shift(
+      this.render.bounds,
+      Vector.sub(this.player.cameraFloating, Vector.div(boundsSz, 2)));
+
     return null;
   }
 
-  draw(controls: InputState, ctx: CanvasRenderingContext2D) {}
+  draw(controls: InputState, ctx: CanvasRenderingContext2D) { }
+
+  parseWorldSvg() {
+    function select(root: Document, selector: string): Element[] {
+      return Array.prototype.slice.call(root.querySelectorAll(selector));
+    };
+    function svgGetNum(prop: SVGAnimatedLength): number {
+      return prop.baseVal.value;
+    }
+
+    let vertSets = [];
+    for (let elt of select(Assets.worldSvg, "*")) {
+      if (!(elt instanceof SVGElement)) {
+        console.log("not svg???", elt);
+        continue;
+      }
+
+      if (elt.style.stroke == "#ffffff") {
+        let verts = null;
+        if (elt instanceof SVGPathElement) {
+          verts = Svg.pathToVertices(elt, 30);
+        } else if (elt instanceof SVGRectElement) {
+          let x1 = svgGetNum(elt.x);
+          let y1 = svgGetNum(elt.y);
+          let x2 = x1 + svgGetNum(elt.width);
+          let y2 = y1 + svgGetNum(elt.height);
+          let out = [
+            { x: x1, y: y1 },
+            { x: x1, y: y2 },
+            { x: x2, y: y2 },
+            { x: x2, y: y1 },
+          ];
+          verts = out;
+        } else {
+          console.warn(`Can't process elements of type ${elt.tagName}`);
+        }
+        if (verts != null) {
+          vertSets.push(verts);
+        }
+      } else if (elt instanceof SVGCircleElement) {
+        if (elt.id == "player-start") {
+          Composite.translate(
+            this.player.composite,
+            { x: svgGetNum(elt.cx as any), y: svgGetNum(elt.cy as any) },
+            true
+          );
+        }
+      }
+    }
+
+    let body =
+      betterFromVertices(0, 0, vertSets, {
+        isStatic: true,
+      });
+    console.log(body);
+    Composite.add(this.engine.world, body);
+  }
 }
 
-function makePlayer(x: number, y: number): Player {
-  let membraneOpts = {
-    friction: 0.5,
-    frictionStatic: 0.1,
-    restitution: 0.9,
-    render: { visible: true, lineWidth: 1, strokeStyle: "white" },
-    label: "membrane",
-  };
 
-  let membraneCount = 30;
-  let blobRadius = 100;
-  let pieceLen = 50;
+function betterFromVertices(x: number, y: number, pointSets: Matter.Vector[][], options: Matter.IBodyDefinition) {
+  var decomp = Common.getDecomp(),
+    canDecomp,
+    body,
+    isConvex,
+    isConcave,
+    vertices,
+    i,
+    j,
+    k,
+    v,
+    z;
 
-  let blobOut = Composite.create();
-  let crossGroup = Body.nextGroup(true);
-  let membrane: Matter.Body[] = [];
-  let crosses: Matter.Body[] = [];
+  // check decomp is as expected
+  canDecomp = Boolean(decomp && decomp.quickDecomp);
 
-  for (let idx = 0; idx < membraneCount; idx++) {
-    let theta = (idx / membraneCount) * Math.PI * 2;
-    let sin = Math.sin(theta);
-    let cos = Math.cos(theta);
-    let bodyHere = Bodies.circle(
-      x + cos * blobRadius,
-      y + sin * blobRadius,
-      10,
-      membraneOpts,
-    );
-    membrane.push(bodyHere);
-  }
+  options = options || {};
+  let parts: Matter.IBodyDefinition[] = [];
 
-  Composite.add(blobOut, membrane);
+  var flagInternal = false;
+  var removeCollinear = false;
+  var minimumArea = 0;
+  var removeDuplicatePoints = false;
 
-  for (let idx = 0; idx < membraneCount; idx++) {
-    let nIdx = (idx + 1) % membraneCount;
-    let bodyHere = membrane[idx];
-    Composite.add(
-      blobOut,
-      Constraint.create({
-        bodyA: membrane[idx],
-        bodyB: membrane[nIdx],
-        stiffness: 1,
-        label: "membrane",
-      }),
-    );
+  for (v = 0; v < pointSets.length; v += 1) {
+    let points = pointSets[v];
+    isConvex = Vertices.isConvex(points);
+    isConcave = !isConvex;
 
-    if (idx < membraneCount / 2) {
-      let theta = (idx / membraneCount) * Math.PI * 2;
-      let thetaAcross = theta + Math.PI;
-      let sin = Math.sin(theta);
-      let cos = Math.cos(theta);
-      let sinAcross = Math.sin(thetaAcross);
-      let cosAcross = Math.cos(thetaAcross);
-      let centerLen = 50;
-      let center = Bodies.rectangle(x, y, centerLen, 5, {
-        collisionFilter: { group: crossGroup },
-        angle: theta,
+    if (isConcave && !canDecomp) {
+      Common.warnOnce(
+        'Bodies.fromVertices: Install the \'poly-decomp\' library and use Common.setDecomp or provide \'decomp\' as a global to decompose concave vertices.'
+      );
+    }
+
+    if (isConvex || !canDecomp) {
+      let verts;
+      if (isConvex) {
+        verts = Vertices.clockwiseSort(points);
+      } else {
+        // fallback to convex hull when decomposition is not possible
+        // verts = Vertices.hull(points);
+      }
+
+      parts.push({
+        position: Vertices.centre(verts as any),
+        vertices: verts
       });
-      crosses.push(center);
+    } else {
+      // initialise a decomposition
+      var concave = points.map(function(vertex) {
+        return [vertex.x, vertex.y];
+      });
 
-      Composite.add(
-        blobOut,
-        Constraint.create({
-          bodyA: membrane[idx],
-          bodyB: center,
-          pointB: { x: (cos * centerLen) / 2, y: (sin * centerLen) / 2 },
-          damping: 0.5,
-          stiffness: 0.9,
-          label: "across",
-        }),
-      );
-      Composite.add(
-        blobOut,
-        Constraint.create({
-          bodyA: membrane[(idx + membraneCount / 2) % membraneCount],
-          bodyB: center,
-          pointB: {
-            x: (cosAcross * centerLen) / 2,
-            y: (sinAcross * centerLen) / 2,
-          },
-          damping: 0.5,
-          stiffness: 0.9,
-          label: "across",
-        }),
-      );
+      // vertices are concave and simple, we can decompose into parts
+      decomp.makeCCW(concave);
+      if (removeCollinear !== false)
+        decomp.removeCollinearPoints(concave, removeCollinear);
+      if (removeDuplicatePoints !== false && decomp.removeDuplicatePoints)
+        decomp.removeDuplicatePoints(concave, removeDuplicatePoints);
+
+      // use the quick decomposition algorithm (Bayazit)
+      var decomposed = decomp.quickDecomp(concave);
+
+      // for each decomposed chunk
+      for (i = 0; i < decomposed.length; i++) {
+        var chunk = decomposed[i];
+
+        // convert vertices into the correct structure
+        var chunkVertices: Matter.Vector[] = chunk.map(function(vertices: any) {
+          return {
+            x: vertices[0],
+            y: vertices[1]
+          };
+        });
+
+        // skip small chunks
+        if (minimumArea > 0 && Vertices.area(chunkVertices, false) < minimumArea)
+          continue;
+
+        // create a compound part
+        parts.push({
+          position: Vertices.centre(chunkVertices),
+          vertices: chunkVertices
+        });
+      }
     }
   }
 
-  for (let i = 0; i < crosses.length; i++) {
-    Composite.add(
-      blobOut,
-      Constraint.create({
-        bodyA: crosses[i],
-        bodyB: crosses[(i + 1) % crosses.length],
-        stiffness: 1,
-        length: 0,
-      }),
-    );
+  // create body parts
+  let subBodies = [];
+  console.log(parts);
+  for (i = 0; i < parts.length; i++) {
+    subBodies.push(Body.create(Common.extend(parts[i], options as any)));
   }
 
-  Composite.add(blobOut, crosses);
+  if (subBodies.length > 1) {
+    // create the parent body to be returned, that contains generated compound parts
+    body = Body.create({ parts: subBodies.slice(0), ...options });
 
-  return {
-    composite: blobOut,
-    membrane: membrane,
-    crosses: crosses,
-  };
-}
+    // offset such that body.position is at the centre off mass
+    // Body.setPosition(body, { x: x, y: y });
+
+    return body;
+  } else {
+    return subBodies[0];
+  }
+};

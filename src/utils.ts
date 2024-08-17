@@ -133,3 +133,9 @@ export function titleCase(s: string): string {
     (txt) => txt.charAt(0).toUpperCase() + txt.substring(1).toLowerCase(),
   );
 }
+
+export function clamp(x: number, min: number, max: number) {
+  if (x < min) return min;
+  else if (x > max) return max;
+  else return x;
+}
