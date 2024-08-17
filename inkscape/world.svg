@@ -29,8 +29,8 @@
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
      inkscape:zoom="0.64"
-     inkscape:cx="846.875"
-     inkscape:cy="14724.219"
+     inkscape:cx="1332.8125"
+     inkscape:cy="14491.406"
      inkscape:document-units="mm"
      inkscape:showpageshadow="2"
      inkscape:pagecheckerboard="0"
@@ -40,7 +40,7 @@
      inkscape:window-x="0"
      inkscape:window-y="0"
      inkscape:window-maximized="1"
-     inkscape:current-layer="controls" />
+     inkscape:current-layer="collision" />
   <metadata
      id="metadata1">
     <rdf:RDF>
@@ -85,32 +85,7 @@
        height="45.782791"
        x="915.37567"
        y="4160.3428"
-       transform="translate(271.39878,13687.618)" />
-    <rect
-       style="vector-effect:non-scaling-stroke;fill:none;stroke:#ffffff;stroke-width:0.488395;-inkscape-stroke:hairline"
-       id="rect4"
-       width="283.09061"
-       height="82.152069"
-       x="1164.4434"
-       y="4126.708"
-       ry="0"
-       transform="translate(271.39878,13687.618)" />
-    <rect
-       style="vector-effect:non-scaling-stroke;fill:none;stroke:#ffffff;stroke-width:0.136556;-inkscape-stroke:hairline"
-       id="rect5"
-       width="77.726746"
-       height="67.982857"
-       x="1359.6781"
-       y="4071.1238"
-       transform="translate(271.39878,13687.618)" />
-    <rect
-       style="vector-effect:non-scaling-stroke;fill:none;stroke:#ffffff;stroke-width:0.264583;-inkscape-stroke:hairline"
-       id="rect6"
-       width="152.32108"
-       height="63.043617"
-       x="1541.3707"
-       y="3954.8025"
-       transform="translate(271.39878,13687.618)" />
+       transform="matrix(2.1591323,0,0,1,-789.6427,13687.618)" />
   </g>
   <g
      inkscape:groupmode="layer"

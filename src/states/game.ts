@@ -51,7 +51,7 @@ export class StateGame implements GameState {
     });
 
     // add all of the bodies to the world
-    this.player = new Player(this.engine.world, 20, 0, 0);
+    this.player = new Player(this.engine, 20, 0, 0);
     Composite.add(this.engine.world, [
       this.player.composite,
     ]);
@@ -139,6 +139,13 @@ export class StateGame implements GameState {
     let body =
       betterFromVertices(0, 0, vertSets, {
         isStatic: true,
+        friction: 1.0,
+        render: {
+          strokeStyle: "#707080",
+          fillStyle: "#14151f",
+          lineWidth: 2,
+        },
+        label: "ground",
       });
     console.log(body);
     Composite.add(this.engine.world, body);

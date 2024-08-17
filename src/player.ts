@@ -15,7 +15,8 @@ var Engine = Matter.Engine,
   Constraint = Matter.Constraint,
   Vector = Matter.Vector,
   Common = Matter.Common,
-  World = Matter.World
+  World = Matter.World,
+  Events = Matter.Events
   ;
 
 export const MEMBRANE_CELL_RADIUS = 5;
@@ -24,7 +25,7 @@ export const MEMBRANE_CELL_DIST = 12;
 export const JUMP_WINDDOWN_TIME = 0.7;
 
 const MEMBRANE_CONSTR_OPTS: Matter.IConstraintDefinition = {
-  stiffness: 0.9,
+  stiffness: 0.8,
   damping: 0.03,
   length: MEMBRANE_CELL_DIST,
   label: "membrane",
@@ -32,7 +33,7 @@ const MEMBRANE_CONSTR_OPTS: Matter.IConstraintDefinition = {
 };
 
 export class Player {
-  world: Matter.World;
+  engine: Matter.Engine;
 
   jumpHeld: boolean;
   // goes from 0 to 1
@@ -43,20 +44,21 @@ export class Player {
   center: Matter.Body;
   membraneConstraints: Matter.Constraint[];
   crossConstraints: Matter.Constraint[];
-  centerToCOMConstraint: Matter.Constraint;
+  // centerToCOMConstraint: Matter.Constraint;
 
   cameraFloating: Matter.Vector;
 
-  constructor(world: Matter.World, membraneCount: number, x: number, y: number) {
+  constructor(engine: Matter.Engine, membraneCount: number, x: number, y: number) {
     this.jumpHeld = false;
     this.jumpWindDown = 0;
-    this.world = world;
+    this.engine = engine;
     this.cameraFloating = { x, y };
 
     this.composite = Composite.create();
     let radius = this.radius(membraneCount);
     this.center = Bodies.circle(x, y, MEMBRANE_CELL_DIST * 1.2, {
       density: 0.003,
+      frictionAir: 0.02,
       render: {
         fillStyle: "#E03020",
       }
@@ -109,13 +111,29 @@ export class Player {
     Composite.add(this.composite, this.membraneConstraints);
     Composite.add(this.composite, this.crossConstraints);
 
-    this.centerToCOMConstraint = Constraint.create({
-      bodyA: this.center,
-      pointB: { x, y },
-      stiffness: 0.5,
-      damping: 1,
-      length: 0,
-    });
+    // this.centerToCOMConstraint = Constraint.create({
+    //   bodyA: this.center,
+    //   pointB: { x, y },
+    //   stiffness: 0.5,
+    //   damping: 1,
+    //   length: 0,
+    // });
+
+    Events.on(this.engine, "collisionActive", e => {
+      for (let pair of e.pairs) {
+        let memb = null;
+        if (pair.bodyA.label == "membrane")
+          memb = pair.bodyA;
+        else if (pair.bodyB.label == "membrane")
+          memb = pair.bodyB;
+        if (memb != null) {
+          let normal = (pair.bodyA.label == "membrane")
+            ? Vector.mult(pair.collision.normal, -1)
+            : pair.collision.normal;
+          // Body.applyForce(memb, memb.position, Vector.mult(normal, 20));
+        }
+      }
+    })
   }
 
   radius(membraneCount: number = this.membrane.length): number {
@@ -158,11 +176,15 @@ export class Player {
     Composite.add(this.composite, newToCenter);
 
     Composite.remove(this.composite, oldConstr, true);
-    World.remove(this.world, oldConstr, true);
+    World.remove(this.engine.world, oldConstr, true);
 
     let scale = this.membrane.length / (this.membrane.length - 1);
     Body.scale(this.center, scale, scale);
     Body.setDensity(this.center, this.center.density / scale);
+
+    for (let membr of this.membrane) {
+      Body.setDensity(membr, membr.density * 1.01);
+    }
   }
 
   update(controls: InputState, dt: number) {
@@ -174,18 +196,15 @@ export class Player {
 
     let squishSidewaysAmount;
     if (chargeJump) {
-      squishSidewaysAmount = 0.5;
+      squishSidewaysAmount = 1;
     } else {
       squishSidewaysAmount = -this.jumpWindDown * 1.25;
-      if (this.jumpWindDown == 0) {
-        squishSidewaysAmount += controls.isPressed("w")
-          ? -0.5 : 0;
-      }
     }
 
-    let left = controls.isPressed("a");
-    let right = controls.isPressed("d");
-    let moveDx = (left ? -1 : 0) + (right ? 1 : 0);
+    let moveCenter = {
+      x: (controls.isPressed("a") ? -1 : 0) + (controls.isPressed("d") ? 1 : 0),
+      y: (controls.isPressed("w") ? -1 : 0) + (controls.isPressed("s") ? 1 : 0)
+    };
 
     for (let constr of this.crossConstraints) {
       let length = this.radius();
@@ -203,7 +222,8 @@ export class Player {
 
       // Make constraints on the move side shrink
       // and constraints on the other side grow
-      length -= (moveDx * deltaFromBody.x) * this.radius() * 0.35;
+      let movSimilarity = Vector.dot(moveCenter, deltaFromBody);
+      length -= movSimilarity * this.radius() * 0.35;
 
       // Press F to inflate
       if (controls.isPressed("f")) {
@@ -238,10 +258,34 @@ export class Player {
       com = Vector.add(com, membr.position)
     }
     com = Vector.div(com, this.membrane.length);
-    this.centerToCOMConstraint.pointB = com;
+    // this.centerToCOMConstraint.pointB = com;
+    let outsideReportCount = 0;
+    for (let membr of this.membrane) {
+      let membrToCom = Vector.normalise(Vector.sub(com, membr.position));
+      let membrToCenter = Vector.normalise(Vector.sub(this.center.position, membr.position));
+      if (Vector.dot(membrToCenter, membrToCom) < -0.05) {
+        outsideReportCount += 1;
+      }
+    }
+    console.log(outsideReportCount);
+    if (outsideReportCount > this.membrane.length / 5) {
+      console.log("oh no outside!");
 
-    let cameraTarget = Vector.add(this.center.position,
-      { x: moveDx * 2, y: 0 });
+      Body.setPosition(this.center, com);
+      for (let i = 0; i < this.membrane.length; i++) {
+        let theta = i / this.membrane.length * Math.PI * 2;
+        let sin = Math.sin(theta);
+        let cos = Math.cos(theta);
+        Body.setPosition(this.membrane[i], {
+          x: com.x + cos * this.radius(),
+          y: com.y + sin * this.radius(),
+        });
+
+        this.jumpWindDown = 0;
+      }
+    }
+
+    let cameraTarget = Vector.add(this.center.position, moveCenter);
     this.cameraFloating =
       Vector.div(Vector.add(this.cameraFloating, cameraTarget), 2);
 
@@ -249,8 +293,6 @@ export class Player {
       this.jumpWindDown = Math.max(0, this.jumpWindDown - dt / JUMP_WINDDOWN_TIME)
     }
     this.jumpHeld = chargeJump;
-
-    console.log(this.radius());
   }
 }
 
@@ -259,8 +301,8 @@ function makeMembranePart(x: number, y: number): Matter.Body {
     x, y,
     MEMBRANE_CELL_RADIUS,
     {
-      friction: 0.9,
-      frictionStatic: 0.5,
+      friction: 1,
+      frictionStatic: 3.0,
       restitution: 0.9,
       render: { visible: true, lineWidth: 0, fillStyle: "white" },
       label: "membrane",
