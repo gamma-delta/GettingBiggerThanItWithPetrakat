@@ -139,3 +139,26 @@ export function clamp(x: number, min: number, max: number) {
   else if (x > max) return max;
   else return x;
 }
+
+export function getTfRecursive(elt: SVGGraphicsElement): DOMMatrix {
+  let out = new DOMMatrix();
+  let cursor = elt;
+  for (; ;) {
+    let cons = cursor.transform.baseVal.consolidate();
+    if (cons != null) {
+      out = out.preMultiplySelf(cons.matrix);
+    }
+
+    let parent = cursor.parentElement;
+    if (parent instanceof SVGGraphicsElement) {
+      cursor = parent;
+    } else break;
+  }
+  return out;
+}
+
+export function tfMatterVec(v: Matter.Vector, mat: DOMMatrix): Matter.Vector {
+  let pt = new DOMPoint(v.x, v.y);
+  let pt2 = pt.matrixTransform(mat);
+  return { x: pt2.x, y: pt2.y };
+}

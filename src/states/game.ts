@@ -1,7 +1,7 @@
 import { Consts } from "../consts.js";
 import { InputState } from "../inputs.js";
 import { GameState } from "../states.js";
-import { drawString } from "../utils.js";
+import { drawString, getTfRecursive, tfMatterVec } from "../utils.js";
 import { the_game } from "../main.js";
 import type _Matter from "../include/matter.js";
 import { MEMBRANE_CELL_RADIUS, Player } from "../player.js";
@@ -88,14 +88,18 @@ export class StateGame implements GameState {
     let vertSets = [];
     for (let elt of select(Assets.worldSvg, "*")) {
       if (!(elt instanceof SVGElement)) {
-        console.log("not svg???", elt);
+        console.log("not svg???");
         continue;
       }
 
-      if (elt.style.stroke == "#ffffff") {
+      if (elt.style.stroke == "rgb(255, 255, 255)") {
         let verts = null;
         if (elt instanceof SVGPathElement) {
-          verts = Svg.pathToVertices(elt, 30);
+          verts = Svg.pathToVertices(elt, 30)
+            .map(vector => {
+              let v2 = tfMatterVec(vector, getTfRecursive(elt));
+              return v2;
+            });
         } else if (elt instanceof SVGRectElement) {
           let x1 = svgGetNum(elt.x);
           let y1 = svgGetNum(elt.y);
@@ -107,7 +111,10 @@ export class StateGame implements GameState {
             { x: x2, y: y2 },
             { x: x2, y: y1 },
           ];
-          verts = out;
+          let outTf = out.map(v => {
+            return tfMatterVec(v, getTfRecursive(elt));
+          });
+          verts = outTf;
         } else {
           console.warn(`Can't process elements of type ${elt.tagName}`);
         }
@@ -115,10 +122,14 @@ export class StateGame implements GameState {
           vertSets.push(verts);
         }
       } else if (elt instanceof SVGCircleElement) {
+        let rawPt = { x: svgGetNum(elt.cx), y: svgGetNum(elt.cy) };
+        let pt = tfMatterVec(rawPt, getTfRecursive(elt));
+        let usePt = pt;
         if (elt.id == "player-start") {
+          console.log("placing player", usePt, elt);
           Composite.translate(
             this.player.composite,
-            { x: svgGetNum(elt.cx as any), y: svgGetNum(elt.cy as any) },
+            usePt,
             true
           );
         }
@@ -217,7 +228,7 @@ function betterFromVertices(x: number, y: number, pointSets: Matter.Vector[][], 
 
         // create a compound part
         parts.push({
-          position: Vertices.centre(chunkVertices),
+          position: { x: 0, y: 0 },
           vertices: chunkVertices
         });
       }
