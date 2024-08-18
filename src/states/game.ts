@@ -1,7 +1,7 @@
 import { Consts } from "../consts.js";
 import { InputState } from "../inputs.js";
 import { GameState } from "../states.js";
-import { drawString, getTfRecursive, tfMatterVec } from "../utils.js";
+import { getTfRecursive, tfMatterVec } from "../utils.js";
 import { the_game } from "../main.js";
 import type _Matter from "../include/matter.js";
 import { MEMBRANE_CELL_RADIUS, Player } from "../player.js";

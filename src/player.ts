@@ -44,6 +44,8 @@ export class Player {
   center: Matter.Body;
   membraneConstraints: Matter.Constraint[];
   crossConstraints: Matter.Constraint[];
+
+  stickyConstraints: Set<Matter.Constraint>;
   // centerToCOMConstraint: Matter.Constraint;
 
   cameraFloating: Matter.Vector;
@@ -57,7 +59,7 @@ export class Player {
     this.composite = Composite.create();
     let radius = this.radius(membraneCount);
     this.center = Bodies.circle(x, y, MEMBRANE_CELL_DIST * 1.2, {
-      density: 0.003,
+      density: 0.002,
       frictionAir: 0.02,
       render: {
         fillStyle: "#E03020",
@@ -119,21 +121,35 @@ export class Player {
     //   length: 0,
     // });
 
-    Events.on(this.engine, "collisionActive", e => {
+    this.stickyConstraints = new Set();
+
+    Events.on(this.engine, "collisionStart", e => {
       for (let pair of e.pairs) {
-        let memb = null;
+        let memb, ground = null;
         if (pair.bodyA.label == "membrane")
           memb = pair.bodyA;
         else if (pair.bodyB.label == "membrane")
           memb = pair.bodyB;
-        if (memb != null) {
+        if (pair.bodyA.label == "ground")
+          ground = pair.bodyA;
+        else if (pair.bodyB.label == "ground")
+          ground = pair.bodyB;
+        if (memb != null && ground != null) {
           let normal = (pair.bodyA.label == "membrane")
             ? Vector.mult(pair.collision.normal, -1)
             : pair.collision.normal;
-          // Body.applyForce(memb, memb.position, Vector.mult(normal, 20));
+          // console.log(normal);
+          let constr = Constraint.create({
+            bodyA: memb,
+            pointB: Vector.add(memb.position, Vector.mult(normal, MEMBRANE_CELL_RADIUS)),
+            stiffness: 0.1,
+            length: MEMBRANE_CELL_RADIUS * 0.9
+          });
+          // this.stickyConstraints.add(constr);
+          // Composite.add(this.composite, constr);
         }
       }
-    })
+    });
   }
 
   radius(membraneCount: number = this.membrane.length): number {
@@ -249,6 +265,15 @@ export class Player {
       constr.bodyA!.render.fillStyle = `rgb(${r * 255}, ${g * 255}, ${b * 255})`;
     }
 
+    for (let constr of this.stickyConstraints) {
+      //@ts-ignore
+      if (Constraint.currentLength(constr) > MEMBRANE_CELL_RADIUS * 1.5) {
+        this.stickyConstraints.delete(constr);
+        World.remove(this.engine.world, constr, true);
+        World.remove(this.composite, constr, true);
+      }
+    }
+
     if (controls.isClicked("b")) {
       this.addToMembrane();
     }
@@ -304,6 +329,7 @@ function makeMembranePart(x: number, y: number): Matter.Body {
       friction: 1,
       frictionStatic: 3.0,
       restitution: 0.9,
+      inertia: Infinity,
       render: { visible: true, lineWidth: 0, fillStyle: "white" },
       label: "membrane",
     }

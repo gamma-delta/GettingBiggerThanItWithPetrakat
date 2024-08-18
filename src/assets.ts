@@ -10,8 +10,6 @@ var Engine = Matter.Engine,
 const sfxAudios: HTMLAudioElement[] = [];
 export const Assets = {
   textures: {
-    font: image("font"),
-    numberFont: image("number_font"),
   },
   audio: {
     bgMusic: audio("dicejam.mp3", false),
