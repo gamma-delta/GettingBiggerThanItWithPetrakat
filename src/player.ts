@@ -20,9 +20,9 @@ var Engine = Matter.Engine,
   ;
 
 export const MEMBRANE_CELL_RADIUS = 5;
-export const MEMBRANE_CELL_DIST = 12;
+export const MEMBRANE_CELL_DIST = 15;
 
-export const JUMP_WINDDOWN_TIME = 0.7;
+export const JUMP_WINDDOWN_TIME = 1.5;
 
 const MEMBRANE_CONSTR_OPTS: Matter.IConstraintDefinition = {
   stiffness: 0.8,
@@ -46,7 +46,7 @@ export class Player {
   crossConstraints: Matter.Constraint[];
 
   stickyConstraints: Set<Matter.Constraint>;
-  // centerToCOMConstraint: Matter.Constraint;
+  centerToCOMConstraint: Matter.Constraint;
 
   cameraFloating: Matter.Vector;
 
@@ -58,9 +58,10 @@ export class Player {
 
     this.composite = Composite.create();
     let radius = this.radius(membraneCount);
-    this.center = Bodies.circle(x, y, MEMBRANE_CELL_DIST * 1.2, {
+    this.center = Bodies.circle(x, y, MEMBRANE_CELL_DIST * 1.25, {
       density: 0.002,
       frictionAir: 0.02,
+      friction: 0,
       render: {
         fillStyle: "#E03020",
       }
@@ -113,13 +114,13 @@ export class Player {
     Composite.add(this.composite, this.membraneConstraints);
     Composite.add(this.composite, this.crossConstraints);
 
-    // this.centerToCOMConstraint = Constraint.create({
-    //   bodyA: this.center,
-    //   pointB: { x, y },
-    //   stiffness: 0.5,
-    //   damping: 1,
-    //   length: 0,
-    // });
+    this.centerToCOMConstraint = Constraint.create({
+      bodyA: this.center,
+      pointB: { x, y },
+      stiffness: 0.7,
+      damping: 1,
+      length: 0,
+    });
 
     this.stickyConstraints = new Set();
 
@@ -212,15 +213,18 @@ export class Player {
 
     let squishSidewaysAmount;
     if (chargeJump) {
-      squishSidewaysAmount = 1;
+      squishSidewaysAmount = 0.7;
     } else {
-      squishSidewaysAmount = -this.jumpWindDown * 1.25;
+      squishSidewaysAmount = -this.jumpWindDown * 1.40;
     }
 
+    let inflate = controls.isPressed("f");
     let moveCenter = {
       x: (controls.isPressed("a") ? -1 : 0) + (controls.isPressed("d") ? 1 : 0),
       y: (controls.isPressed("w") ? -1 : 0) + (controls.isPressed("s") ? 1 : 0)
     };
+    if (inflate)
+      moveCenter = Vector.div(moveCenter, 1.8);
 
     for (let constr of this.crossConstraints) {
       let length = this.radius();
@@ -239,10 +243,10 @@ export class Player {
       // Make constraints on the move side shrink
       // and constraints on the other side grow
       let movSimilarity = Vector.dot(moveCenter, deltaFromBody);
-      length -= movSimilarity * this.radius() * 0.35;
+      let oppositeSideBonus = movSimilarity < 0 ? 0.6 : 0.35;
+      length -= movSimilarity * this.radius() * oppositeSideBonus;
 
-      // Press F to inflate
-      if (controls.isPressed("f")) {
+      if (inflate) {
         length += MEMBRANE_CELL_DIST * 2;
       }
 
@@ -283,7 +287,7 @@ export class Player {
       com = Vector.add(com, membr.position)
     }
     com = Vector.div(com, this.membrane.length);
-    // this.centerToCOMConstraint.pointB = com;
+    this.centerToCOMConstraint.pointB = com;
     let outsideReportCount = 0;
     for (let membr of this.membrane) {
       let membrToCom = Vector.normalise(Vector.sub(com, membr.position));
@@ -292,7 +296,6 @@ export class Player {
         outsideReportCount += 1;
       }
     }
-    console.log(outsideReportCount);
     if (outsideReportCount > this.membrane.length / 5) {
       console.log("oh no outside!");
 
@@ -307,6 +310,7 @@ export class Player {
         });
 
         this.jumpWindDown = 0;
+        Body.setVelocity(this.center, { x: 0, y: 0 });
       }
     }
 

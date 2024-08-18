@@ -50,7 +50,6 @@ export class StateGame implements GameState {
       },
     });
 
-    // add all of the bodies to the world
     this.player = new Player(this.engine, 20, 0, 0);
     Composite.add(this.engine.world, [
       this.player.composite,
@@ -141,9 +140,9 @@ export class StateGame implements GameState {
         isStatic: true,
         friction: 1.0,
         render: {
-          strokeStyle: "#707080",
+          strokeStyle: "#9090B0",
           fillStyle: "#14151f",
-          lineWidth: 2,
+          lineWidth: 4,
         },
         label: "ground",
       });

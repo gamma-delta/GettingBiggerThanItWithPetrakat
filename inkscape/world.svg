@@ -29,8 +29,8 @@
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
      inkscape:zoom="0.90509668"
-     inkscape:cx="460.72426"
-     inkscape:cy="14540.436"
+     inkscape:cx="583.3631"
+     inkscape:cy="14631.034"
      inkscape:document-units="mm"
      inkscape:showpageshadow="2"
      inkscape:pagecheckerboard="0"
@@ -94,11 +94,32 @@
        x="745.0531"
        y="14788.098"
        transform="translate(22.677265,3081.4308)" />
-    <path
+    <rect
        style="vector-effect:non-scaling-stroke;fill:none;stroke:#ffffff;-inkscape-stroke:hairline"
-       d="m 358.65903,14460.886 308.34931,-0.941 0.37979,56.167 58.8896,-79.226 -56.07136,-62.485 -2.06728,50.504 -311.9962,-0.958 z"
-       id="path4"
+       id="rect5"
+       width="419.22748"
+       height="56.494308"
+       x="566.04364"
+       y="14466.389"
        transform="translate(22.677265,3081.4308)" />
+    <path
+       sodipodi:type="star"
+       style="vector-effect:non-scaling-stroke;fill:none;stroke:#ffffff;-inkscape-stroke:hairline"
+       id="path5"
+       inkscape:flatsided="true"
+       sodipodi:sides="3"
+       sodipodi:cx="948.46136"
+       sodipodi:cy="14396.408"
+       sodipodi:r1="122.21214"
+       sodipodi:r2="61.106068"
+       sodipodi:arg1="2.0895263"
+       sodipodi:arg2="3.1367239"
+       inkscape:rounded="0"
+       inkscape:randomized="0"
+       d="m 887.87132,14502.543 -1.03061,-211.675 183.83139,104.945 z"
+       transform="translate(117.89758,3173.9408)"
+       inkscape:transform-center-x="-30.29502"
+       inkscape:transform-center-y="0.29751086" />
   </g>
   <g
      inkscape:groupmode="layer"
